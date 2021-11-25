@@ -92,8 +92,8 @@ describe('DeployUtil', () => {
       transferAmount
     );
     assert.deepEqual(
-      deploy.session.getArgByName('target')!.value(),
-      recipientKey.accountHash()
+      deploy.session.getArgByName('target'),
+      recipientKey.publicKey
     );
     assert.deepEqual(
       deploy.session
@@ -166,8 +166,8 @@ describe('DeployUtil', () => {
       transferAmount
     );
     assert.deepEqual(
-      deploy.session.getArgByName('target')!.value(),
-      recipientKey.accountHash()
+      deploy.session.getArgByName('target'),
+      recipientKey.publicKey
     );
     assert.deepEqual(
       deploy.session
@@ -346,8 +346,8 @@ describe('DeployUtil', () => {
       transferAmount
     );
     assert.deepEqual(
-      deploy.session.getArgByName('target')!.value(),
-      recipientKey.accountHash()
+      deploy.session.getArgByName('target'),
+      recipientKey.publicKey
     );
     assert.deepEqual(
       deploy.session
@@ -459,5 +459,44 @@ describe('DeployUtil', () => {
     let result = Buffer.from(DeployUtil.deployToBytes(deploy)).toString('hex');
 
     assert.equal(result, expected);
+  });
+
+  it('Is possible to chain deploys using dependencies', () => {
+    const senderKey = Keys.Ed25519.new();
+    const recipientKey = Keys.Ed25519.new();
+    const networkName = 'test-network';
+    const paymentAmount = 10000000000000;
+    const transferAmount = 10;
+    const transferId = 35;
+    let payment = DeployUtil.standardPayment(paymentAmount);
+    let session = DeployUtil.ExecutableDeployItem.newTransfer(
+      transferAmount,
+      recipientKey.publicKey,
+      undefined,
+      transferId
+    );
+
+    // Build first deploy.
+    let firstDeployParams = new DeployUtil.DeployParams(
+      senderKey.publicKey,
+      networkName
+    );
+    let firstDeploy = DeployUtil.makeDeploy(firstDeployParams, session, payment);
+
+    // Build second deploy with the first one as a dependency.
+    let gasPrice = 1;
+    let ttl = 1800000;
+    let dependencies = [firstDeploy.hash];
+    let secondDeployParams = new DeployUtil.DeployParams(
+      senderKey.publicKey,
+      networkName,
+      gasPrice,
+      ttl,
+      dependencies
+    );
+    
+    let secondDeploy = DeployUtil.makeDeploy(secondDeployParams, session, payment);
+
+    assert.deepEqual(secondDeploy.header.dependencies, [firstDeploy.hash]);
   });
 });
